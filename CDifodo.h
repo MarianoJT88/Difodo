@@ -6,6 +6,7 @@
 #include <mrpt/math/CMatrixFixedNumeric.h>
 #include <mrpt/poses/CPose3D.h>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <array>
 
 
 /** This abstract class implements a method called "Difodo" to perform Visual odometry with range cameras.
@@ -38,23 +39,12 @@ protected:
 	Eigen::MatrixXf depth_wf;
 
 	/** Matrices that store the point coordinates after downsampling. */
-	std::vector<Eigen::MatrixXf> depth;
-	std::vector<Eigen::MatrixXf> depth_old;
-	std::vector<Eigen::MatrixXf> depth_inter;
-	std::vector<Eigen::MatrixXf> depth_warped;
-	std::vector<Eigen::MatrixXf> xx;
-	std::vector<Eigen::MatrixXf> xx_inter;
-	std::vector<Eigen::MatrixXf> xx_old;
-	std::vector<Eigen::MatrixXf> xx_warped;
-	std::vector<Eigen::MatrixXf> yy;
-	std::vector<Eigen::MatrixXf> yy_inter;
-	std::vector<Eigen::MatrixXf> yy_old;
-	std::vector<Eigen::MatrixXf> yy_warped;
+	Eigen::MatrixXf depth[6], depth_old[6], depth_inter[6], depth_warped[6];
+	Eigen::MatrixXf xx[6], xx_inter[6], xx_old[6], xx_warped[6];
+	Eigen::MatrixXf yy[6], yy_inter[6], yy_old[6], yy_warped[6];
 
 	/** Matrices that store the depth derivatives */
-	Eigen::MatrixXf du;
-	Eigen::MatrixXf dv;
-	Eigen::MatrixXf dt;
+	Eigen::MatrixXf du, dv, dt;
 
 	/** Weights for the range flow constraint equations in the least square solution */
 	Eigen::MatrixXf weights;
@@ -112,12 +102,12 @@ protected:
 	Eigen::Matrix<float,6,1> kai_abs;
 
 	/** Filtered velocity in local coordinates */
-	Eigen::Matrix<float,6,1> kai_loc;
-	Eigen::Matrix<float,6,1> kai_loc_old;
+	Eigen::Matrix<float,6,1> kai_loc, kai_loc_old;
 
 	/** Create the gaussian image pyramid according to the number of coarse-to-fine levels */
 	void buildCoordinatesPyramid();
 	void buildCoordinatesPyramidFast();
+	void buildCoordinatesPyramidInteger();
 
 	/** Warp the second depth image against the first one according to the 3D transformations accumulated up to a given level */
 	void performWarping();
@@ -144,8 +134,7 @@ protected:
 
 public:
 
-	/** Frames per second (Hz) */
-	float fps;
+	unsigned int fps;
 
 	/** Resolution of the images taken by the range camera */
 	unsigned int cam_mode;	// (1 - 640 x 480, 2 - 320 x 240, 4 - 160 x 120)

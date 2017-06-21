@@ -38,7 +38,7 @@ void CDifodoDatasets::loadConfiguration(const utils::CConfigFileBase &ini )
 	fovh = M_PI*62.5/180.0;	//Larger FOV because depth is registered with color
 	fovv = M_PI*48.5/180.0;
 	cam_mode = 1;
-	fast_pyramid = false;
+	fast_pyramid = true;
 	downsample = ini.read_int("DIFODO_CONFIG", "downsample", 2, true);
 	rows = ini.read_int("DIFODO_CONFIG", "rows", 240, true);
 	cols = ini.read_int("DIFODO_CONFIG", "cols", 320, true);
@@ -82,18 +82,18 @@ void CDifodoDatasets::loadConfiguration(const utils::CConfigFileBase &ini )
 
 	//Resize pyramid
     const unsigned int pyr_levels = round(log(float(width/cols))/log(2.f)) + ctf_levels;
-    depth.resize(pyr_levels);
-    depth_old.resize(pyr_levels);
-    depth_inter.resize(pyr_levels);
-	depth_warped.resize(pyr_levels);
-    xx.resize(pyr_levels);
-    xx_inter.resize(pyr_levels);
-    xx_old.resize(pyr_levels);
-	xx_warped.resize(pyr_levels);
-    yy.resize(pyr_levels);
-    yy_inter.resize(pyr_levels);
-    yy_old.resize(pyr_levels);
-	yy_warped.resize(pyr_levels);
+ //   depth.resize(pyr_levels);
+ //   depth_old.resize(pyr_levels);
+ //   depth_inter.resize(pyr_levels);
+	//depth_warped.resize(pyr_levels);
+ //   xx.resize(pyr_levels);
+ //   xx_inter.resize(pyr_levels);
+ //   xx_old.resize(pyr_levels);
+	//xx_warped.resize(pyr_levels);
+ //   yy.resize(pyr_levels);
+ //   yy_inter.resize(pyr_levels);
+ //   yy_old.resize(pyr_levels);
+	//yy_warped.resize(pyr_levels);
 	transformations.resize(pyr_levels);
 
 	for (unsigned int i = 0; i<pyr_levels; i++)

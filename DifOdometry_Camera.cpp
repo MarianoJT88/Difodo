@@ -34,7 +34,6 @@ void CDifodoCamera::loadConfiguration(const utils::CConfigFileBase &ini )
 	cam_mode = ini.read_int("DIFODO_CONFIG", "cam_mode", 2, true);
 	rows = ini.read_int("DIFODO_CONFIG", "rows", 240, true);
 	cols = ini.read_int("DIFODO_CONFIG", "cols", 320, true);
-	fps = ini.read_int("DIFODO_CONFIG", "fps", 30, false);
 	ctf_levels = ini.read_int("DIFODO_CONFIG", "ctf_levels", 5, true);
 
 
@@ -46,18 +45,18 @@ void CDifodoCamera::loadConfiguration(const utils::CConfigFileBase &ini )
 
 	//Resize pyramid
     const unsigned int pyr_levels = utils::round(log(float(width/cols))/log(2.f)) + ctf_levels;
-    depth.resize(pyr_levels);
-    depth_old.resize(pyr_levels);
-    depth_inter.resize(pyr_levels);
-	depth_warped.resize(pyr_levels);
-    xx.resize(pyr_levels);
-    xx_inter.resize(pyr_levels);
-    xx_old.resize(pyr_levels);
-	xx_warped.resize(pyr_levels);
-    yy.resize(pyr_levels);
-    yy_inter.resize(pyr_levels);
-    yy_old.resize(pyr_levels);
-	yy_warped.resize(pyr_levels);
+ //   depth.resize(pyr_levels);
+ //   depth_old.resize(pyr_levels);
+ //   depth_inter.resize(pyr_levels);
+	//depth_warped.resize(pyr_levels);
+ //   xx.resize(pyr_levels);
+ //   xx_inter.resize(pyr_levels);
+ //   xx_old.resize(pyr_levels);
+	//xx_warped.resize(pyr_levels);
+ //   yy.resize(pyr_levels);
+ //   yy_inter.resize(pyr_levels);
+ //   yy_old.resize(pyr_levels);
+	//yy_warped.resize(pyr_levels);
 	transformations.resize(pyr_levels);
 
 	for (unsigned int i = 0; i<pyr_levels; i++)

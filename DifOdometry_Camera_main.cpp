@@ -163,8 +163,8 @@ int main(int num_arg, char *argv[])
 
 			if (working == 1)
 			{
-				while(main_clock.Tac() < 1.f/odo.fps);
-				if (main_clock.Tac() > 1.05f/odo.fps)
+				while(main_clock.Tac() < 1.f/float(odo.fps));
+				if (main_clock.Tac() > 1.05f/float(odo.fps))
 					cout << endl << "Not enough time to compute everything!!!";
 
 				main_clock.Tic();
