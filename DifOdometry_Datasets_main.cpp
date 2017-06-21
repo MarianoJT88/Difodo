@@ -31,12 +31,12 @@ const char *default_cfg_txt =
 	"ctf_levels = 5 \n\n"
 
 	";Absolute path of the rawlog file \n"
-	//"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg1_desk/rgbd_dataset_freiburg1_desk.rawlog \n";
+	"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg1_desk/rgbd_dataset_freiburg1_desk.rawlog \n";
 	//"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg3_walking_static/rgbd_dataset_freiburg3_walking_static.rawlog \n ";
 	//"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg3_walking_xyz/rgbd_dataset_freiburg3_walking_xyz.rawlog";
 	//"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg3_walking_halfsphere/rgbd_dataset_freiburg3_walking_halfsphere.rawlog";
 	//"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg3_sitting_static/rgbd_dataset_freiburg3_sitting_static.rawlog \n ";
-	"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg3_sitting_halfsphere/rgbd_dataset_freiburg3_sitting_halfsphere.rawlog";
+	//"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg3_sitting_halfsphere/rgbd_dataset_freiburg3_sitting_halfsphere.rawlog";
 	//"filename = D:/TUM datasets/rawlog_rgbd_dataset_freiburg3_sitting_xyz/rgbd_dataset_freiburg3_sitting_xyz.rawlog";
 
 	//"filename = .../file.rawlog \n";
@@ -101,8 +101,9 @@ int main(int num_arg, char *argv[])
 
 		//Initial steps. Load configuration from file or default
 		//------------------------------------------------------
-																								odo.save_results = true;
-																								odo.CreateResultsFile();
+		odo.save_results = true;
+		if (odo.save_results)
+			odo.CreateResultsFile();
 
 		if (!use_config_file)
 		{
@@ -148,13 +149,19 @@ int main(int num_arg, char *argv[])
 				}
 				else
 				{
-					odo.loadFrame();
-					odo.odometryCalculation();
-					if (odo.save_results == 1)
-						odo.writeTrajectoryFile();
+					float aver_runtime = 0.f;
+					for (unsigned int k=0; k<50; k++)
+					{
+						odo.loadFrame();
+						odo.odometryCalculation();
+						if (odo.save_results == 1)
+							odo.writeTrajectoryFile();
 
-					cout << endl << "Difodo runtime(ms): " << odo.execution_time;
-					odo.updateScene();
+						cout << endl << "Difodo runtime(ms): " << odo.execution_time;
+						aver_runtime += odo.execution_time;
+						odo.updateScene();
+					}
+					printf("\n Average runtime = %f", aver_runtime/50);
 				}
 
 				break;

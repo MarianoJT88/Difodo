@@ -19,9 +19,6 @@
 	*		- Call loadFrame();
 	*		- Call odometryCalculation();
 	*
-	*	For further information have a look at the apps:
-	*    - [DifOdometry-Camera](http://www.mrpt.org/list-of-mrpt-apps/application-difodometry-camera/)
-	*    - [DifOdometry-Datasets](http://www.mrpt.org/list-of-mrpt-apps/application-difodometry-datasets/)
 	*
 	*	Please refer to the respective publication when using this method: 
 	*		title = {Fast Visual Odometry for {3-D} Range Sensors},
@@ -32,12 +29,6 @@
 	*		pages = {809 - 822},
 	*		year = {2015}
 	*
-	* - JUN/2013: First design.
-	* - JAN/2014: Integrated into MRPT library.
-	* - DIC/2014: Reformulated and improved. The class now needs Eigen version 3.1.0 or above.
-	*
-	*  \sa CDifodoCamera, CDifodoDatasets
-	*  \ingroup mrpt_vision_grp
 	*/
 
 class CDifodo {

@@ -7,10 +7,6 @@
 #include <mrpt/opengl/COpenGLScene.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
 #include <iostream>
-
-#if defined(MRPT_OS_LINUX) && !defined(linux)
-#   define linux 1   // Seems to be required by OpenNI.h
-#endif
 #include <OpenNI.h>
 #include "legend.xpm"
 
@@ -39,7 +35,7 @@ public:
 	void closeCamera();
 
 	/** Capture a new depth frame */
-	void loadFrame() MRPT_OVERRIDE;
+	void loadFrame();
 
 	/** Create a file to save the estimated trajectory */
 	void CreateResultsFile();
