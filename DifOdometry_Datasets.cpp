@@ -44,6 +44,7 @@ void CDifodoDatasets::loadConfiguration(const utils::CConfigFileBase &ini )
 	cols = ini.read_int("DIFODO_CONFIG", "cols", 320, true);
 	ctf_levels = ini.read_int("DIFODO_CONFIG", "ctf_levels", 5, true);
 	string filename = ini.read_string("DIFODO_CONFIG", "filename", "no file", true);
+	indices.resize(2, rows*cols);
 
 	//						Open Rawlog File
 	//==================================================================

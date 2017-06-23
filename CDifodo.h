@@ -50,7 +50,7 @@ protected:
 	Eigen::MatrixXf weights;
 
 	/** Matrix which indicates whether the depth of a pixel is zero (null = 1) or not (null = 00).*/
-	Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> null;
+	Eigen::Matrix<int, 2, Eigen::Dynamic> indices;
 
 	/** Least squares covariance matrix */
 	Eigen::Matrix<float, 6, 6> est_cov;

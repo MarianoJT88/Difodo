@@ -23,21 +23,10 @@ CDifodo::CDifodo()
 	width = 640/(cam_mode*downsample);
 	height = 480/(cam_mode*downsample);
 	fast_pyramid = true;
+	indices.resize(2, rows*cols);
 
 	//Resize pyramid
     const unsigned int pyr_levels = round(log(float(width/cols))/log(2.f)) + ctf_levels;
- //   depth.resize(pyr_levels);
- //   depth_old.resize(pyr_levels);
- //   depth_inter.resize(pyr_levels);
-	//depth_warped.resize(pyr_levels);
- //   xx.resize(pyr_levels);
- //   xx_inter.resize(pyr_levels);
- //   xx_old.resize(pyr_levels);
-	//xx_warped.resize(pyr_levels);
- //   yy.resize(pyr_levels);
- //   yy_inter.resize(pyr_levels);
- //   yy_old.resize(pyr_levels);
-	//yy_warped.resize(pyr_levels);
 	transformations.resize(pyr_levels);
 
 	for (unsigned int i = 0; i<pyr_levels; i++)
@@ -618,8 +607,8 @@ void CDifodo::performWarping()
 
 	//Rigid transformation estimated up to the present level
 	Matrix4f acu_trans; acu_trans.setIdentity();
-	for (unsigned int i=1; i<=level; i++)
-		acu_trans = transformations[i-1]*acu_trans;
+	for (unsigned int i=0; i<=level; i++)
+		acu_trans = transformations[i]*acu_trans;
 
 	//Aux variables
 	MatrixXf wacu(rows_i,cols_i); wacu.assign(0.f);
@@ -709,8 +698,6 @@ void CDifodo::performWarping()
 
 void CDifodo::calculateCoord()
 {	
-	null.resize(rows_i, cols_i);
-	null.assign(false);
 	num_valid_points = 0;
 
 	//Refs
@@ -719,6 +706,8 @@ void CDifodo::calculateCoord()
 	MatrixXf &yy_inter_ref = yy_inter[image_level];
 	const MatrixXf &depth_old_ref = depth_old[image_level];
 	const MatrixXf &depth_warped_ref = depth_warped[image_level];
+
+	const int multiplier = max(1, int(cols_i)/160);
 	
 	for (unsigned int u = 0; u != cols_i; u++)
 		for (unsigned int v = 0; v != rows_i; v++)
@@ -728,18 +717,23 @@ void CDifodo::calculateCoord()
 				depth_inter_ref(v,u) = 0.5f*(depth_old_ref(v,u) + depth_warped_ref(v,u));
 				xx_inter_ref(v,u) = 0.5f*(xx_old[image_level](v,u) + xx_warped[image_level](v,u));
 				yy_inter_ref(v,u) = 0.5f*(yy_old[image_level](v,u) + yy_warped[image_level](v,u));
-				null(v, u) = false;
-				if ((u!=0)&&(v!=0)&&(u!=cols_i-1)&&(v!=rows_i-1))
+
+				if ((u!=0)&&(v!=0)&&(u!=cols_i-1)&&(v!=rows_i-1)&(u%multiplier == 0)&&(v%multiplier == 0))
+				{
+					indices(0, num_valid_points) = v;
+					indices(1, num_valid_points) = u;
 					num_valid_points++;
+				}
 			}
 			else
 			{
 				depth_inter_ref(v,u) = 0.f;
 				xx_inter_ref(v,u) = 0.f;
 				yy_inter_ref(v,u) = 0.f;
-				null(v, u) = true;
 			}
 		}
+
+	//printf("\n number of valid points = %d", num_valid_points);
 }
 
 //void CDifodo::calculateDepthDerivatives()
@@ -819,21 +813,37 @@ void CDifodo::calculateDepthDerivatives()
 	const MatrixXf &xx_ref = xx_inter[image_level];
 	const MatrixXf &yy_ref = yy_inter[image_level];
 
-    for (unsigned int u = 0; u != cols_i-1; u++)
-        for (unsigned int v = 0; v != rows_i; v++)
-            if (null(v,u) == false)
-				rx(v,u) = abs(depth_ref(v,u+1) - depth_ref(v,u)) + epsilon_depth;
+	//for (unsigned int k=0; k<num_valid_points; k++)
+	//{
+	//	const int v = indices(0,k);
+	//	const int u = indices(1,k);
+	//	rx(v,u) = abs(depth_ref(v,u+1) - depth_ref(v,u)) + epsilon_depth;
+	//	ry(v,u) = abs(depth_ref(v+1,u) - depth_ref(v,u)) + epsilon_depth;
+	//}
 
-    for (unsigned int u = 0; u != cols_i; u++)
+    for (unsigned int u = 0; u != cols_i-1; u++)
         for (unsigned int v = 0; v != rows_i-1; v++)
-            if (null(v,u) == false)
+            if (depth_ref(v,u) != 0.f)
+			{
+				rx(v,u) = abs(depth_ref(v,u+1) - depth_ref(v,u)) + epsilon_depth;
 				ry(v,u) = abs(depth_ref(v+1,u) - depth_ref(v,u)) + epsilon_depth;
+			}
+				
 
 
     //Spatial derivatives
+	//for (unsigned int k=0; k<num_valid_points; k++)
+	//{
+	//	const int v = indices(0,k);
+	//	const int u = indices(1,k);
+	//	du(v,u) = (rx(v,u-1)*(depth_ref(v,u+1)-depth_ref(v,u)) + rx(v,u)*(depth_ref(v,u) - depth_ref(v,u-1)))/(rx(v,u)+rx(v,u-1));
+	//	dv(v,u) = (ry(v-1,u)*(depth_ref(v+1,u)-depth_ref(v,u)) + ry(v,u)*(depth_ref(v,u) - depth_ref(v-1,u)))/(ry(v,u)+ry(v-1,u));
+	//}
+
+
     for (unsigned int v = 0; v != rows_i; v++)
         for (unsigned int u = 1; u != cols_i-1; u++)
-            if (null(v,u) == false)
+            if (depth_ref(v,u) != 0.f)
                 du(v,u) = (rx(v,u-1)*(depth_ref(v,u+1)-depth_ref(v,u)) + rx(v,u)*(depth_ref(v,u) - depth_ref(v,u-1)))/(rx(v,u)+rx(v,u-1));
 
 	du.col(0) = du.col(1);
@@ -841,7 +851,7 @@ void CDifodo::calculateDepthDerivatives()
 
     for (unsigned int u = 0; u != cols_i; u++)
         for (unsigned int v = 1; v != rows_i-1; v++)
-            if (null(v,u) == false)
+            if (depth_ref(v,u) != 0.f)
                 dv(v,u) = (ry(v-1,u)*(depth_ref(v+1,u)-depth_ref(v,u)) + ry(v,u)*(depth_ref(v,u) - depth_ref(v-1,u)))/(ry(v,u)+ry(v-1,u));
 
     dv.row(0) = dv.row(1);
@@ -850,83 +860,6 @@ void CDifodo::calculateDepthDerivatives()
 	//Temporal derivative
     dt = depth_warped[image_level] - depth_old[image_level];
 }
-
-//void CDifodo::computeWeights()
-//{
-//	weights.resize(rows_i, cols_i);
-//	weights.assign(0.f);
-//
-//	//Obtain the velocity associated to the rigid transformation estimated up to the present level
-//	Matrix<float,6,1> kai_level = kai_loc_old;
-//
-//	Matrix4f acu_trans;
-//	acu_trans.setIdentity();
-//	for (unsigned int i=0; i<level; i++)
-//		acu_trans = transformations[i]*acu_trans;
-//
-//	Matrix<float, 4, 4> log_trans = acu_trans.log();
-//	kai_level(0) -= log_trans(0,3); kai_level(1) -= log_trans(1,3); kai_level(2) -= log_trans(2,3);
-//	kai_level(3) += log_trans(1,2); kai_level(4) -= log_trans(0,2); kai_level(5) += log_trans(0,1);
-//
-//	//Parameters for the measurmente error
-//	const float f_inv = float(cols_i)/(2.f*tan(0.5f*fovh));
-//	const float kz2 = 8.122e-12f;  //square(1.425e-5) / 25
-//	
-//	//Parameters for linearization error
-//	const float kduv = 20e-5f;
-//	const float kdt = kduv;
-//	const float k2dt = 5e-6f;
-//	const float k2duv = 5e-6f;
-//	
-//	for (unsigned int u = 1; u < cols_i-1; u++)
-//		for (unsigned int v = 1; v < rows_i-1; v++)
-//			if (null(v,u) == false)
-//			{
-//				//					Compute measurment error (simplified)
-//				//-----------------------------------------------------------------------
-//				const float z = depth_inter[image_level](v,u);
-//				const float inv_d = 1.f/z;
-//				const float z2 = z*z;
-//				const float z4 = z2*z2;
-//
-//				const float var44 = kz2*z4;
-//				const float var55 = kz2*z4*0.25f;
-//				const float var66 = var55;
-//
-//				const float j4 = 1.f;
-//				const float j5 =  xx_inter[image_level](v,u)*inv_d*inv_d*f_inv*(kai_level[0] + yy_inter[image_level](v,u)*kai_level[4] - xx_inter[image_level](v,u)*kai_level[5]) 
-//							   + inv_d*f_inv*(-kai_level[1] - z*kai_level[5] + yy_inter[image_level](v,u)*kai_level[3]);
-//				const float j6 = yy_inter[image_level](v,u)*inv_d*inv_d*f_inv*(kai_level[0] + yy_inter[image_level](v,u)*kai_level[4] - xx_inter[image_level](v,u)*kai_level[5])
-//							   + inv_d*f_inv*(-kai_level[2] + z*kai_level[4] - xx_inter[image_level](v,u)*kai_level[3]);
-//
-//				const float error_m = 0.01f; //j4*j4*var44 + j5*j5*var55 + j6*j6*var66;
-//
-//				
-//				//					Compute linearization error
-//				//-----------------------------------------------------------------------
-//				const float ini_du = depth_old[image_level](v,u+1) - depth_old[image_level](v,u-1);
-//				const float ini_dv = depth_old[image_level](v+1,u) - depth_old[image_level](v-1,u);
-//				const float final_du = depth_warped[image_level](v,u+1) - depth_warped[image_level](v,u-1);
-//				const float final_dv = depth_warped[image_level](v+1,u) - depth_warped[image_level](v-1,u);
-//
-//				const float dut = ini_du - final_du;
-//				const float dvt = ini_dv - final_dv;
-//				const float duu = du(v,u+1) - du(v,u-1);
-//				const float dvv = dv(v+1,u) - dv(v-1,u);
-//				const float dvu = dv(v,u+1) - dv(v,u-1); //Completely equivalent to compute duv
-//
-//				//const float error_l = kdt*square(dt(v,u)) + kduv*(square(du(v,u)) + square(dv(v,u))) + k2dt*(square(dut) + square(dvt))
-//				//							+ k2duv*(square(duu) + square(dvv) + square(dvu));
-//				const float error_l = 200.f*(square(dt(v,u)) + square(du(v,u)) + square(dv(v,u))); 
-//
-//				//Weight
-//				weights(v,u) = sqrt(1.f/(error_m + error_l));
-//			}
-//
-//	//Normalize weights in the range [0,1]
-//	const float inv_max = 1.f/weights.maximum();
-//	weights = inv_max*weights;
-//}
 
 void CDifodo::computeWeights()
 {
@@ -945,33 +878,34 @@ void CDifodo::computeWeights()
     const float k2dt = 5.f;
     const float k2duv = 5.f;
 
-    for (unsigned int u = 1; u != cols_i-1; u++)
-        for (unsigned int v = 1; v != rows_i-1; v++)
-            if (null(v,u) == false)
-            {
-                //					Compute error_measurement
-                //-----------------------------------------------------------------------
-                const float error_m = kz2*square(square(depth_inter_ref(v,u)));
+	for (unsigned int k=0; k<num_valid_points; k++)
+	{
+		const int v = indices(0,k);
+		const int u = indices(1,k);
+
+        //					Compute error_measurement
+        //-----------------------------------------------------------------------
+        const float error_m = kz2*square(square(depth_inter_ref(v,u)));
 
 
-                //					Compute error_linearization
-                //-----------------------------------------------------------------------
-                const float ini_du = depth_old_ref(v,u+1) - depth_old_ref(v,u-1);
-                const float ini_dv = depth_old_ref(v+1,u) - depth_old_ref(v-1,u);
-                const float final_du = depth_warped_ref(v,u+1) - depth_warped_ref(v,u-1);
-                const float final_dv = depth_warped_ref(v+1,u) - depth_warped_ref(v-1,u);
+        //					Compute error_linearization
+        //-----------------------------------------------------------------------
+        const float ini_du = depth_old_ref(v,u+1) - depth_old_ref(v,u-1);
+        const float ini_dv = depth_old_ref(v+1,u) - depth_old_ref(v-1,u);
+        const float final_du = depth_warped_ref(v,u+1) - depth_warped_ref(v,u-1);
+        const float final_dv = depth_warped_ref(v+1,u) - depth_warped_ref(v-1,u);
 
-                const float dut = ini_du - final_du;
-                const float dvt = ini_dv - final_dv;
-                const float duu = du(v,u+1) - du(v,u-1);
-                const float dvv = dv(v+1,u) - dv(v-1,u);
-                const float dvu = dv(v,u+1) - dv(v,u-1); //Completely equivalent to compute duv
+        const float dut = ini_du - final_du;
+        const float dvt = ini_dv - final_dv;
+        const float duu = du(v,u+1) - du(v,u-1);
+        const float dvv = dv(v+1,u) - dv(v-1,u);
+        const float dvu = dv(v,u+1) - dv(v,u-1);
 
-                const float error_l = kduvt*(square(du(v,u)) + square(dv(v,u)) + square(dt(v,u))) + k2dt*(square(dut) + square(dvt))
-                                     + k2duv*(square(duu) + square(dvv) + square(dvu));
+        const float error_l = kduvt*(square(du(v,u)) + square(dv(v,u)) + square(dt(v,u))) + k2dt*(square(dut) + square(dvt))
+                                + k2duv*(square(duu) + square(dvv) + square(dvu));
 
-                weights(v,u) = sqrt(1.f/(error_m + error_l));
-            }
+        weights(v,u) = sqrt(1.f/(error_m + error_l));
+    }
 
     const float inv_max = 1.f/weights.maximum();
     weights = inv_max*weights;
@@ -981,8 +915,6 @@ void CDifodo::solveOneLevel()
 {
 	Matrix<float, Dynamic, 6> A(num_valid_points,6);
 	VectorXf B(num_valid_points);
-	//MatrixXf A(num_valid_points,6);
-	//MatrixXf B(num_valid_points,1);
 	unsigned int cont = 0;
 
 	//Refs
@@ -996,29 +928,30 @@ void CDifodo::solveOneLevel()
 
 	const float f_inv = float(cols_i)/(2.f*tan(0.5f*fovh));
 
-	for (unsigned int u = 1; u != cols_i-1; u++)
-		for (unsigned int v = 1; v != rows_i-1; v++)
-			if (null(v,u) == false)
-			{
-				// Precomputed expressions
-				const float d = depth_inter_ref(v,u);
-				const float inv_d = 1.f/d;
-				const float x = xx_inter_ref(v,u);
-				const float y = yy_inter_ref(v,u);
-				const float dycomp = du(v,u)*f_inv*inv_d;
-				const float dzcomp = dv(v,u)*f_inv*inv_d;
-				const float tw = weights(v,u);
+	for (unsigned int k=0; k<num_valid_points; k++)
+	{
+		const int v = indices(0,k);
+		const int u = indices(1,k);
 
-				//Fill the matrix A
-				A(cont, 0) = tw*(1.f + dycomp*x*inv_d + dzcomp*y*inv_d);
-				A(cont, 1) = tw*(-dycomp);
-				A(cont, 2) = tw*(-dzcomp);
-				A(cont, 3) = tw*(dycomp*y - dzcomp*x);
-				A(cont, 4) = tw*(y + dycomp*inv_d*y*x + dzcomp*(y*y*inv_d + d));
-				A(cont, 5) = tw*(-x - dycomp*(x*x*inv_d + d) - dzcomp*inv_d*y*x);
-				B(cont) = tw*(-dt(v,u));
+		// Precomputed expressions
+		const float d = depth_inter_ref(v,u);
+		const float inv_d = 1.f/d;
+		const float x = xx_inter_ref(v,u);
+		const float y = yy_inter_ref(v,u);
+		const float dycomp = du(v,u)*f_inv*inv_d;
+		const float dzcomp = dv(v,u)*f_inv*inv_d;
+		const float tw = weights(v,u);
 
-				cont++;
+		//Fill the matrix A
+		A(cont, 0) = tw*(1.f + dycomp*x*inv_d + dzcomp*y*inv_d);
+		A(cont, 1) = tw*(-dycomp);
+		A(cont, 2) = tw*(-dzcomp);
+		A(cont, 3) = tw*(dycomp*y - dzcomp*x);
+		A(cont, 4) = tw*(y + dycomp*inv_d*y*x + dzcomp*(y*y*inv_d + d));
+		A(cont, 5) = tw*(-x - dycomp*(x*x*inv_d + d) - dzcomp*inv_d*y*x);
+		B(cont) = tw*(-dt(v,u));
+
+		cont++;
 			}
 	
 	//Solve the linear system of equations using weighted least squares
@@ -1046,45 +979,57 @@ void CDifodo::odometryCalculation()
 	clock.Tic();
 
 	//Build the gaussian pyramid
-	if (fast_pyramid)	buildCoordinatesPyramidInteger();
+	if (fast_pyramid)	buildCoordinatesPyramidFast();
 	else				buildCoordinatesPyramid();
 
 	//Coarse-to-fines scheme
     for (unsigned int i=0; i<ctf_levels; i++)
-    {
-		//Previous computations
+	{
+		//Initialize transformations
 		transformations[i].setIdentity();
 
-		level = i;
-		unsigned int s = pow(2.f,int(ctf_levels-(i+1)));
-        cols_i = cols/s; rows_i = rows/s;
-        image_level = ctf_levels - i + round(log(float(width/cols))/log(2.f)) - 1;
-
-		//1. Perform warping
-		if (i == 0)
+		for (unsigned int k=0; k<4; k++)
 		{
-			depth_warped[image_level] = depth[image_level];
-			xx_warped[image_level] = xx[image_level];
-			yy_warped[image_level] = yy[image_level];
+			level = i;
+			unsigned int s = pow(2.f,int(ctf_levels-(i+1)));
+			cols_i = cols/s; rows_i = rows/s;
+			image_level = ctf_levels - i + round(log(float(width/cols))/log(2.f)) - 1;
+
+			//1. Perform warping
+			if ((i == 0)&&(k == 0))
+			{
+				depth_warped[image_level] = depth[image_level];
+				xx_warped[image_level] = xx[image_level];
+				yy_warped[image_level] = yy[image_level];
+			}
+			else
+				performWarping();
+
+			//2. Calculate inter coords and find null measurements
+			calculateCoord();
+
+			//3. Compute derivatives
+			calculateDepthDerivatives();
+
+			//4. Compute weights
+			computeWeights();
+
+			//5. Solve odometry
+			if (num_valid_points > 6)
+				solveOneLevel();
+
+			//6. Filter solution
+			filterLevelSolution();
+
+			//Check convergence of nonlinear iterations
+			if (kai_loc_level.norm() < 0.004f) //0.01
+			{
+				//printf("\n level = %d, Iterations = %d", i, k+1);
+				break;
+			}
+			//else if (k == 2)
+			//	printf("\n level = %d, Iterations = %d", i, k+1);
 		}
-		else
-			performWarping();
-
-		//2. Calculate inter coords and find null measurements
-		calculateCoord();
-
-		//3. Compute derivatives
-		calculateDepthDerivatives();
-
-		//4. Compute weights
-		computeWeights();
-
-		//5. Solve odometry
-		if (num_valid_points > 6)
-			solveOneLevel();
-
-		//6. Filter solution
-		filterLevelSolution();
 	}
 
 	//Update poses
@@ -1096,7 +1041,6 @@ void CDifodo::odometryCalculation()
 
 void CDifodo::filterLevelSolution()
 {
-#if EIGEN_VERSION_AT_LEAST(3,1,0)  // Eigen 3.1.0 needed for Matrix::log()
 	//		Calculate Eigenvalues and Eigenvectors
 	//----------------------------------------------------------
 	SelfAdjointEigenSolver<MatrixXf> eigensolver(est_cov);
@@ -1120,7 +1064,7 @@ void CDifodo::filterLevelSolution()
 	//Important: we have to substract the previous levels' solutions from the old velocity.
 	Matrix4f acu_trans;
 	acu_trans.setIdentity();
-	for (unsigned int i=0; i<level; i++)
+	for (unsigned int i=0; i<=level; i++)
 		acu_trans = transformations[i]*acu_trans;
 
 	Matrix4f log_trans = acu_trans.log();
@@ -1149,15 +1093,11 @@ void CDifodo::filterLevelSolution()
 	local_mat(0,3) = kai_loc_fil(0);
 	local_mat(1,3) = kai_loc_fil(1);
 	local_mat(2,3) = kai_loc_fil(2);
-	transformations[level] = local_mat.exp();
-#else
-	THROW_EXCEPTION("This class requires Eigen 3.1.0 or above!")
-#endif
+	transformations[level] = local_mat.exp()*transformations[level];
 }
 
 void CDifodo::poseUpdate()
 {
-#if EIGEN_VERSION_AT_LEAST(3,1,0)  // Eigen 3.1.0 needed for Matrix::log()
 	//First, compute the overall transformation
 	//---------------------------------------------------
 	Matrix4f acu_trans;
@@ -1195,9 +1135,6 @@ void CDifodo::poseUpdate()
 	cam_pose.getRotationMatrix(inv_trans);
 	kai_loc_old.topRows<3>() = inv_trans.inverse().cast<float>()*kai_abs.topRows(3);
 	kai_loc_old.bottomRows<3>() = inv_trans.inverse().cast<float>()*kai_abs.bottomRows(3);
-#else
-	THROW_EXCEPTION("This class requires Eigen 3.1.0 or above!")
-#endif
 }
 
 void CDifodo::setFOV(float new_fovh, float new_fovv)

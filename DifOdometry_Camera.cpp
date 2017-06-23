@@ -35,6 +35,7 @@ void CDifodoCamera::loadConfiguration(const utils::CConfigFileBase &ini )
 	rows = ini.read_int("DIFODO_CONFIG", "rows", 240, true);
 	cols = ini.read_int("DIFODO_CONFIG", "cols", 320, true);
 	ctf_levels = ini.read_int("DIFODO_CONFIG", "ctf_levels", 5, true);
+	indices.resize(2, rows*cols);
 
 
 	//			Resize Matrices and adjust parameters
