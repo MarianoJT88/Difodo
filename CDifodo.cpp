@@ -707,7 +707,7 @@ void CDifodo::calculateCoord()
 	const MatrixXf &depth_old_ref = depth_old[image_level];
 	const MatrixXf &depth_warped_ref = depth_warped[image_level];
 
-	const int multiplier = max(1, int(cols_i)/160);
+	const int multiplier = max(1, int(cols_i)/int(max_res_sparsity));
 	
 	for (unsigned int u = 0; u != cols_i; u++)
 		for (unsigned int v = 0; v != rows_i; v++)

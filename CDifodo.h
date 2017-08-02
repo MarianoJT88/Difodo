@@ -82,6 +82,9 @@ protected:
 		* coarsest level cannot be smaller than 15 x 20. */
 	unsigned int ctf_levels;
 
+	/** Max resolution (cols) used for the solver (uniform sparsity) */
+	unsigned int max_res_sparsity = 40;
+
 	/** Aux varibles: levels of the image pyramid and the solver, respectively */
 	unsigned int image_level;
 	unsigned int level;
