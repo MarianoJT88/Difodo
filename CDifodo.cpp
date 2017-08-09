@@ -289,19 +289,24 @@ void CDifodo::buildCoordinatesPyramidFast()
 						
 						if (dcenter != 0.f)
 						{	
-							float sum = 0.f, weight = 0.f;
+							//float sum = 0.f, weight = 0.f;
+							//for (unsigned char k = 0; k!=16; k++)
+							//{
+							//	const float abs_dif = abs(d_block(k) - dcenter);
+							//	if (abs_dif < max_depth_dif)
+							//	{
+							//		const float aux_w = f_mask(k)*(max_depth_dif - abs_dif);
+							//		weight += aux_w;
+							//		sum += aux_w*d_block(k);
+							//	}
+							//}
+							//depth_ref(v,u) = sum/weight;
 
-							for (unsigned char k = 0; k!=16; k++)
-								{
-									const float abs_dif = abs(d_block(k) - dcenter);
-									if (abs_dif < max_depth_dif)
-									{
-										const float aux_w = f_mask(k)*(max_depth_dif - abs_dif);
-										weight += aux_w;
-										sum += aux_w*d_block(k);
-									}
-								}
-							depth_ref(v,u) = sum/weight;
+
+							const Array44f abs_mat = (d_block.array() - dcenter).abs();
+							const Array44f aux_w = f_mask.array()*(max_depth_dif - abs_mat).max(0.f);
+							const Array44f depth_w = aux_w*d_block.array();
+							depth_ref(v,u) = depth_w.sum()/aux_w.sum();
 						}
 						else
 							depth_ref(v,u) = 0.f;
@@ -323,12 +328,6 @@ void CDifodo::buildCoordinatesPyramidFast()
 
                         if (cont != 0)	depth_ref(v,u) = new_d/float(cont);
                         else		    depth_ref(v,u) = 0.f;
-
-						//const float new_d = 0.25f*d_block.sumAll();
-						//if (new_d < 0.4f)
-						//	depth_ref(v,u) = 0.f;
-						//else
-						//	depth_ref(v,u) = new_d;
 					}
 				}
         }
@@ -338,18 +337,31 @@ void CDifodo::buildCoordinatesPyramidFast()
         const float disp_u_i = 0.5f*(cols_i-1);
         const float disp_v_i = 0.5f*(rows_i-1);
 
-        for (unsigned int u = 0; u != cols_i; u++) 
-			for (unsigned int v = 0; v != rows_i; v++)
-                if (depth_ref(v,u) != 0.f)
-				{
-					xx_ref(v,u) = (u - disp_u_i)*depth_ref(v,u)*inv_f_i;
-					yy_ref(v,u) = (v - disp_v_i)*depth_ref(v,u)*inv_f_i;
-				}
-				else
-				{
-					xx_ref(v,u) = 0.f;
-					yy_ref(v,u) = 0.f;
-				}
+   //     for (unsigned int u = 0; u != cols_i; u++) 
+			//for (unsigned int v = 0; v != rows_i; v++)
+   //             if (depth_ref(v,u) != 0.f)
+			//	{
+			//		xx_ref(v,u) = (u - disp_u_i)*depth_ref(v,u)*inv_f_i;
+			//		yy_ref(v,u) = (v - disp_v_i)*depth_ref(v,u)*inv_f_i;
+			//	}
+			//	else
+			//	{
+			//		xx_ref(v,u) = 0.f;
+			//		yy_ref(v,u) = 0.f;
+			//	}		
+
+
+		ArrayXf v_col(rows_i);
+		for (unsigned int v = 0; v != rows_i; v++)
+			v_col(v) = float(v);
+
+		for (unsigned int u = 0; u != cols_i; u++)
+		{
+			yy_ref.col(u) = (inv_f_i*(v_col - disp_v_i)*depth_ref.col(u).array()).matrix();
+			xx_ref.col(u) = inv_f_i*(float(u) - disp_u_i)*depth_ref.col(u);
+		}
+
+
     }
 }
 
@@ -981,6 +993,9 @@ void CDifodo::odometryCalculation()
 	//Build the gaussian pyramid
 	if (fast_pyramid)	buildCoordinatesPyramidFast();
 	else				buildCoordinatesPyramid();
+
+	//const float tpyr = clock.Tac();
+	//printf("\n Pyramid time = %f", 1000.f*tpyr);
 
 	//Coarse-to-fines scheme
     for (unsigned int i=0; i<ctf_levels; i++)
