@@ -59,6 +59,9 @@ CDifodo::CDifodo()
     }
 
 	depth_wf.setSize(height,width);
+	dt.resize(rows,cols);
+	du.resize(rows,cols);
+	dv.resize(rows,cols);
 
 	previous_speed_const_weight = 0.05f;
 	previous_speed_eig_weight = 0.5f;
@@ -289,24 +292,25 @@ void CDifodo::buildCoordinatesPyramidFast()
 						
 						if (dcenter != 0.f)
 						{	
-							//float sum = 0.f, weight = 0.f;
-							//for (unsigned char k = 0; k!=16; k++)
-							//{
-							//	const float abs_dif = abs(d_block(k) - dcenter);
-							//	if (abs_dif < max_depth_dif)
-							//	{
-							//		const float aux_w = f_mask(k)*(max_depth_dif - abs_dif);
-							//		weight += aux_w;
-							//		sum += aux_w*d_block(k);
-							//	}
-							//}
-							//depth_ref(v,u) = sum/weight;
+							//Faster for 32 bits
+							float sum = 0.f, weight = 0.f;
+							for (unsigned char k = 0; k!=16; k++)
+							{
+								const float abs_dif = abs(d_block(k) - dcenter);
+								if (abs_dif < max_depth_dif)
+								{
+									const float aux_w = f_mask(k)*(max_depth_dif - abs_dif);
+									weight += aux_w;
+									sum += aux_w*d_block(k);
+								}
+							}
+							depth_ref(v,u) = sum/weight;
 
-
-							const Array44f abs_mat = (d_block.array() - dcenter).abs();
-							const Array44f aux_w = f_mask.array()*(max_depth_dif - abs_mat).max(0.f);
-							const Array44f depth_w = aux_w*d_block.array();
-							depth_ref(v,u) = depth_w.sum()/aux_w.sum();
+							//Faster for 64 bits (I guess the compilers vectorizes more)
+							//const Array44f abs_mat = (d_block.array() - dcenter).abs();
+							//const Array44f aux_w = f_mask.array()*(max_depth_dif - abs_mat).max(0.f);
+							//const Array44f depth_w = aux_w*d_block.array();
+							//depth_ref(v,u) = depth_w.sum()/aux_w.sum();
 						}
 						else
 							depth_ref(v,u) = 0.f;
@@ -334,8 +338,8 @@ void CDifodo::buildCoordinatesPyramidFast()
 
         //Calculate coordinates "xy" of the points
 		const float inv_f_i = 2.f*tan(0.5f*fovh)/float(cols_i);
-        const float disp_u_i = 0.5f*(cols_i-1);
-        const float disp_v_i = 0.5f*(rows_i-1);
+        const float disp_u_i = 0.5f*float(cols_i-1);
+        const float disp_v_i = 0.5f*float(rows_i-1);
 
    //     for (unsigned int u = 0; u != cols_i; u++) 
 			//for (unsigned int v = 0; v != rows_i; v++)
@@ -351,10 +355,7 @@ void CDifodo::buildCoordinatesPyramidFast()
 			//	}		
 
 
-		ArrayXf v_col(rows_i);
-		for (unsigned int v = 0; v != rows_i; v++)
-			v_col(v) = float(v);
-
+		const ArrayXf v_col = ArrayXf::LinSpaced(rows_i, 0.f, float(rows_i-1));
 		for (unsigned int u = 0; u != cols_i; u++)
 		{
 			yy_ref.col(u) = (inv_f_i*(v_col - disp_v_i)*depth_ref.col(u).array()).matrix();
@@ -706,6 +707,17 @@ void CDifodo::performWarping()
 				yy_warped_ref(v,u) = 0.f;
 			}
 		}
+
+	//This is not faster with 32 bits (requires setting wacu to something bigger than 0 as well)
+	//const float inv_f_i = 1.f/f;
+	//const ArrayXf v_col = ArrayXf::LinSpaced(rows_i, 0.f, float(rows_i-1));
+	//depth_warped_ref = (depth_warped_ref.array()/wacu.array()).matrix();
+	//for (unsigned int u = 0; u != cols_i; u++)
+	//{
+	//	//depth_warped_ref.col(u) = (depth_warped_ref.col(u).array()/wacu.col(u).array()).matrix();
+	//	yy_warped_ref.col(u) = (inv_f_i*(v_col - disp_v_i)*depth_warped_ref.col(u).array()).matrix();
+	//	xx_warped_ref.col(u) = inv_f_i*(float(u) - disp_u_i)*depth_warped_ref.col(u);
+	//}
 }
 
 void CDifodo::calculateCoord()
@@ -811,9 +823,9 @@ void CDifodo::calculateCoord()
 
 void CDifodo::calculateDepthDerivatives()
 {
-	dt.resize(rows_i,cols_i); dt.assign(0.f);
-	du.resize(rows_i,cols_i); du.assign(0.f);
-	dv.resize(rows_i,cols_i); dv.assign(0.f);
+	dt.assign(0.f);
+	du.assign(0.f);
+	dv.assign(0.f);
 	
 	//Compute weights for the gradients
 	MatrixXf rx(rows_i,cols_i), ry(rows_i,cols_i);
@@ -825,6 +837,11 @@ void CDifodo::calculateDepthDerivatives()
 	const MatrixXf &xx_ref = xx_inter[image_level];
 	const MatrixXf &yy_ref = yy_inter[image_level];
 
+	//Weights for forward and backward derivatives
+	//----------------------------------------------------------------------------------------------------
+	rx.block(0,0,rows_i,cols_i-1) = ((depth_ref.block(0,1,rows_i,cols_i-1) - depth_ref.block(0,0,rows_i,cols_i-1)).array() + epsilon_depth).matrix();
+	ry.block(0,0,rows_i-1,cols_i) = ((depth_ref.block(1,0,rows_i-1,cols_i) - depth_ref.block(0,0,rows_i-1,cols_i)).array() + epsilon_depth).matrix();	
+
 	//for (unsigned int k=0; k<num_valid_points; k++)
 	//{
 	//	const int v = indices(0,k);
@@ -833,17 +850,17 @@ void CDifodo::calculateDepthDerivatives()
 	//	ry(v,u) = abs(depth_ref(v+1,u) - depth_ref(v,u)) + epsilon_depth;
 	//}
 
-    for (unsigned int u = 0; u != cols_i-1; u++)
-        for (unsigned int v = 0; v != rows_i-1; v++)
-            if (depth_ref(v,u) != 0.f)
-			{
-				rx(v,u) = abs(depth_ref(v,u+1) - depth_ref(v,u)) + epsilon_depth;
-				ry(v,u) = abs(depth_ref(v+1,u) - depth_ref(v,u)) + epsilon_depth;
-			}
-				
+   // for (unsigned int u = 0; u != cols_i-1; u++)
+   //     for (unsigned int v = 0; v != rows_i-1; v++)
+   //         if (depth_ref(v,u) != 0.f)
+			//{
+			//	rx(v,u) = abs(depth_ref(v,u+1) - depth_ref(v,u)) + epsilon_depth;
+			//	ry(v,u) = abs(depth_ref(v+1,u) - depth_ref(v,u)) + epsilon_depth;
+			//}		
 
 
     //Spatial derivatives
+	//--------------------------------------------------------------------------------------------------------
 	//for (unsigned int k=0; k<num_valid_points; k++)
 	//{
 	//	const int v = indices(0,k);
@@ -853,23 +870,35 @@ void CDifodo::calculateDepthDerivatives()
 	//}
 
 
-    for (unsigned int v = 0; v != rows_i; v++)
-        for (unsigned int u = 1; u != cols_i-1; u++)
-            if (depth_ref(v,u) != 0.f)
-                du(v,u) = (rx(v,u-1)*(depth_ref(v,u+1)-depth_ref(v,u)) + rx(v,u)*(depth_ref(v,u) - depth_ref(v,u-1)))/(rx(v,u)+rx(v,u-1));
+ //   for (unsigned int v = 0; v != rows_i; v++)
+ //       for (unsigned int u = 1; u != cols_i-1; u++)
+ //           if (depth_ref(v,u) != 0.f)
+ //               du(v,u) = (rx(v,u-1)*(depth_ref(v,u+1)-depth_ref(v,u)) + rx(v,u)*(depth_ref(v,u) - depth_ref(v,u-1)))/(rx(v,u)+rx(v,u-1));
 
-	du.col(0) = du.col(1);
-	du.col(cols_i-1) = du.col(cols_i-2);
+	//du.col(0) = du.col(1);
+	//du.col(cols_i-1) = du.col(cols_i-2);
 
-    for (unsigned int u = 0; u != cols_i; u++)
+ //   for (unsigned int u = 0; u != cols_i; u++)
+ //       for (unsigned int v = 1; v != rows_i-1; v++)
+ //           if (depth_ref(v,u) != 0.f)
+ //               dv(v,u) = (ry(v-1,u)*(depth_ref(v+1,u)-depth_ref(v,u)) + ry(v,u)*(depth_ref(v,u) - depth_ref(v-1,u)))/(ry(v,u)+ry(v-1,u));
+
+ //   dv.row(0) = dv.row(1);
+ //   dv.row(rows_i-1) = dv.row(rows_i-2);
+
+	for (unsigned int u = 1; u != cols_i-1; u++)
         for (unsigned int v = 1; v != rows_i-1; v++)
             if (depth_ref(v,u) != 0.f)
+			{
                 dv(v,u) = (ry(v-1,u)*(depth_ref(v+1,u)-depth_ref(v,u)) + ry(v,u)*(depth_ref(v,u) - depth_ref(v-1,u)))/(ry(v,u)+ry(v-1,u));
+				du(v,u) = (rx(v,u-1)*(depth_ref(v,u+1)-depth_ref(v,u)) + rx(v,u)*(depth_ref(v,u) - depth_ref(v,u-1)))/(rx(v,u)+rx(v,u-1));
+			}
 
-    dv.row(0) = dv.row(1);
-    dv.row(rows_i-1) = dv.row(rows_i-2);
+	du.col(0) = du.col(1); du.col(cols_i-1) = du.col(cols_i-2); du.row(0) = du.row(1); du.row(rows_i-1) = du.row(rows_i-2);
+	dv.row(0) = dv.row(1); dv.row(rows_i-1) = dv.row(rows_i-2); dv.col(0) = dv.col(1); dv.col(cols_i-1) = dv.col(cols_i-2);
 
 	//Temporal derivative
+	//-------------------------------------------------------------------------------------------------
     dt = depth_warped[image_level] - depth_old[image_level];
 }
 

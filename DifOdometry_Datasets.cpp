@@ -128,6 +128,9 @@ void CDifodoDatasets::loadConfiguration(const utils::CConfigFileBase &ini )
 
 	//Resize matrix that store the original depth image
 	depth_wf.setSize(height,width);
+	dt.resize(rows,cols);
+	du.resize(rows,cols);
+	dv.resize(rows,cols);
 }
 
 void CDifodoDatasets::CreateResultsFile()

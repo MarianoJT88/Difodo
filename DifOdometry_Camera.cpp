@@ -90,6 +90,9 @@ void CDifodoCamera::loadConfiguration(const utils::CConfigFileBase &ini )
     }
 
 	depth_wf.setSize(height,width);
+	dt.resize(rows,cols);
+	du.resize(rows,cols);
+	dv.resize(rows,cols);
 }
 
 bool CDifodoCamera::openCamera()
